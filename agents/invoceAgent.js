@@ -1,6 +1,6 @@
 import { ChatGroq } from "@langchain/groq";
 import { chromium } from 'playwright';
-import { getInputIds, insertInputValue, getButtonElements, getAnchorElements, getTable } from './tools/index.js';
+import { getInputIds, insertInputValue, getButtonElements, getAnchorElements, getTable } from '../tools/index.js';
 import 'dotenv/config';
 import chalk from 'chalk';  // Add this import
 import { z } from "zod";
@@ -200,5 +200,7 @@ async function runAgent() {
   }
 }
 
-runAgent();
+export {
+  runAgent
+};
 
