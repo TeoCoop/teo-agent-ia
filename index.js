@@ -1,6 +1,4 @@
-import { invoiceAgent } from "./agents/invoceAgent.js";
-import yargs from "yargs";
-
+import { invoiceAgent } from "./agents/invoiceAgent.js";
 const args = yargs(process.argv.slice(2)).argv;
 
 

@@ -61,9 +61,12 @@ function createTableAnalyzerAgent() {
   return model.withStructuredOutput(element);
 }
 
-async function invoiceAgent({ url, dowloadFile = false, ussingTelegram = false }) {
+async function invoiceAgent({ url, dowloadFile = false, ussingTelegram = false, userInformation }) {
   const browser = await initializeBrowser();
-
+  const user = {
+    username: userInformation && userInformation.username ? userInformation.username : process.env.SANCOR_USERNAME,
+    password: userInformation && userInformation.password ? userInformation.password : process.env.SANCOR_PASSWORD
+  }
   try {
     const page = global.page;
     // https://booking.jetsmart.com/V2/Login?culture=es-ar&url=https://jetsmart.com/ar/es/
@@ -93,7 +96,7 @@ async function invoiceAgent({ url, dowloadFile = false, ussingTelegram = false }
       const insertResult = await insertInputValue({
         page,
         inputId: userInputResult.elementId,
-        value: process.env.SANCOR_USERNAME
+        value: user.username
       });
 
       logger.info(insertResult.message);
@@ -110,7 +113,7 @@ async function invoiceAgent({ url, dowloadFile = false, ussingTelegram = false }
       const insertResult = await insertInputValue({
         page,
         inputId: passInputResult.elementId,
-        value: process.env.SANCOR_PASSWORD
+        value: user.password
       });
 
       logger.info(insertResult.message);
@@ -143,7 +146,9 @@ async function invoiceAgent({ url, dowloadFile = false, ussingTelegram = false }
         throw new Error("No login button detected by LLM.");
       }
     }
+
     await page.waitForLoadState('domcontentloaded');
+
     // CLICK ON Factura
     logger.debug(`Third step found Factura elements`);
     const facturaResult = await getAnchorElements({ page });
@@ -213,8 +218,9 @@ async function invoiceAgent({ url, dowloadFile = false, ussingTelegram = false }
       await download.saveAs(desktopPath);
 
       logger.success(`Invoice PDF saved at: ${desktopPath}`);
-
+      
       await page.waitForTimeout(2000);
+      return invoiceResult;
     } else {
       return invoiceResult;
     }

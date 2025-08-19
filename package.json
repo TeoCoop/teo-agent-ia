@@ -3,15 +3,19 @@
   "dependencies": {
     "@langchain/core": "^0.3.71",
     "@langchain/groq": "^0.2.3",
+    "body-parser": "^2.2.0",
     "chalk": "^5.6.0",
     "dotenv": "^17.2.1",
+    "express": "^5.1.0",
     "langchain": "^0.3.30",
     "langsmith": "^0.3.61",
+    "node-telegram-bot-api": "^0.66.0",
     "playwright": "^1.54.2",
     "yargs": "^18.0.0"
   },
   "scripts": {
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "telegram-server": "node ./telegram/server.js"
   },
   "devDependencies": {
     "jest": "^29.7.0"
