@@ -4,8 +4,8 @@ import yargs from "yargs";
 const args = yargs(process.argv.slice(2)).argv;
 
 
-async function getSancorInvoice() {
-  const invoiceInformation = await invoiceAgent({ url: "https://www.sancorsalud.com.ar/login/asociados" });
+async function getSancorInvoice(dowloadFile) {
+  const invoiceInformation = await invoiceAgent({ url: "https://www.sancorsalud.com.ar/login/asociados", dowloadFile});
   return invoiceInformation;
 }
 
@@ -15,7 +15,7 @@ async function processAgent(args) {
   switch (args.method) {
     case "getSancorInvoice":
       try {
-        const invoiceInfo = await getSancorInvoice();
+        const invoiceInfo = await getSancorInvoice({ dowloadFile: args.downloadFile || false });
         console.log("Invoice Information:", invoiceInfo);
       } catch (err) {
         console.log(`processAgent::getSancorInvoice::Error condition found: ${err}`);

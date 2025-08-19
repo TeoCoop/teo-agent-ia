@@ -4,6 +4,8 @@ import { getInputIds, insertInputValue, getButtonElements, getAnchorElements, ge
 import 'dotenv/config';
 import chalk from 'chalk';  // Add this import
 import { z } from "zod";
+import path from "path";
+import os from "os";
 
 // Add custom logger
 const logger = {
@@ -53,13 +55,13 @@ function createTableAnalyzerAgent() {
   const element = z.object({
     expirationDate: z.string().describe("The expiration date"),
     amount: z.string().describe("The amount of the invoice"),
-    // facturaId: z.string().describe("The ID of the invoice, get on invoice col provably on element title. e.g., '12345'"),
+    facturaId: z.string().describe("Extract this id form col 'Factura'"),
   });
 
   return model.withStructuredOutput(element);
 }
 
-async function invoiceAgent({url}) {
+async function invoiceAgent({ url, dowloadFile = false, ussingTelegram = false }) {
   const browser = await initializeBrowser();
 
   try {
@@ -170,16 +172,18 @@ async function invoiceAgent({url}) {
     logger.debug(`Get the invoice information`);
     await page.waitForTimeout(10000);
     const facturaTable = await getTable({ page });
+    let invoiceResult = null;
     if (facturaTable.success) {
       const tablenalyzer = createTableAnalyzerAgent();
-      const invoiceResult = await tablenalyzer.invoke(`
+      invoiceResult = await tablenalyzer.invoke(`
         You are given the following table elements:
         ${JSON.stringify(facturaTable.tableElements)}
 
         Return **only a JSON object** with the following fields:
         {
           "expirationDate": "...",
-          "amount": "..."
+          "amount": "...",
+          "facturaId": "..."
         }
         The JSON must be parseable and match the schema exactly.
         `);
@@ -187,14 +191,33 @@ async function invoiceAgent({url}) {
       if (invoiceResult) {
         logger.info(`Invoice found: ${JSON.stringify(invoiceResult, null, 2)}`);
         logger.success("Invoice found successfully");
-        return invoiceResult;
       } else {
         throw new Error("No factura button detected by LLM.");
       }
 
     }
 
-    await page.waitForTimeout(50000);
+    if (dowloadFile) {
+      logger.info(`Downloading invoice with ID: ${invoiceResult.facturaId}`);
+
+      // armamos ruta al escritorio
+      const desktopPath = path.join(os.homedir(), "Desktop", `${invoiceResult.facturaId}.pdf`);
+
+      // esperamos la descarga al mismo tiempo que clickeamos
+      const [download] = await Promise.all([
+        page.waitForEvent("download"),                     // 👈 espera la descarga
+        page.getByTitle(invoiceResult.facturaId).click(),  // 👈 dispara el click que la inicia
+      ]);
+
+      // guardamos el archivo en el escritorio
+      await download.saveAs(desktopPath);
+
+      logger.success(`Invoice PDF saved at: ${desktopPath}`);
+
+      await page.waitForTimeout(2000);
+    } else {
+      return invoiceResult;
+    }
 
   } catch (error) {
     logger.error(`Error: ${error.message}`);
