@@ -59,16 +59,18 @@ function createTableAnalyzerAgent() {
   return model.withStructuredOutput(element);
 }
 
-
-async function runAgent() {
+async function invoiceAgent({url}) {
   const browser = await initializeBrowser();
 
   try {
     const page = global.page;
     // https://booking.jetsmart.com/V2/Login?culture=es-ar&url=https://jetsmart.com/ar/es/
-    // 
+    // 'https://www.sancorsalud.com.ar/login/asociados
     // https://oficinavirtual.camuzzigas.com.ar/landing
-    await page.goto('https://www.sancorsalud.com.ar/login/asociados');
+    if (!url) {
+      throw new Error("No URL provided.");
+    }
+    await page.goto(url);
     logger.info("Navigating to page...");
 
     await page.waitForLoadState('domcontentloaded');
@@ -185,6 +187,7 @@ async function runAgent() {
       if (invoiceResult) {
         logger.info(`Invoice found: ${JSON.stringify(invoiceResult, null, 2)}`);
         logger.success("Invoice found successfully");
+        return invoiceResult;
       } else {
         throw new Error("No factura button detected by LLM.");
       }
@@ -201,6 +204,6 @@ async function runAgent() {
 }
 
 export {
-  runAgent
+  invoiceAgent
 };
 
