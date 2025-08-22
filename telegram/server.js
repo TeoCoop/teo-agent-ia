@@ -78,8 +78,6 @@ const taskHandlers = {
         userInformation: user 
       });
 
-      console.log(invoiceInformation);
-
       if (invoiceInformation.facturaId) {
         const desktopPath = path.join(os.homedir(), "Desktop", `${invoiceInformation.facturaId}.pdf`);
 
@@ -110,7 +108,7 @@ const taskHandlers = {
     }
   },
 
-  getUserInfo: async (params, chatId) => {
+  getAudioResume: async (params, chatId) => {
     // Start audio session
     audioSessions.set(chatId, {
       waitingForAudio: true,
@@ -260,7 +258,7 @@ botPolling.on('message', async (msg) => {
     // Check session timeout (5 minutes)
     if (Date.now() - session.startTime > 5 * 60 * 1000) {
       audioSessions.delete(chatId);
-      await botPolling.sendMessage(chatId, '⏰ Audio session expired. Please use /getUserInfo again if you want to transcribe audio.');
+      await botPolling.sendMessage(chatId, '⏰ Audio session expired. Please use /getAudioResume again if you want to transcribe audio.');
       return;
     }
 
@@ -290,8 +288,8 @@ botPolling.on('message', async (msg) => {
       '/taskName param1:value1 param2:value2\n\n' +
       'Available tasks:\n' +
       '• /getInvoice username:username password:userpass\n' +
-      '• /getUserInfo - Start audio transcription session\n\n' +
-      '🎤 For audio transcription, use /getUserInfo and then send me an audio message!'
+      '• /getAudioResume - Start audio transcription session\n\n' +
+      '🎤 For audio transcription, use /getAudioResume and then send me an audio message!'
     );
     return;
   }
@@ -311,7 +309,7 @@ botPolling.on('message', async (msg) => {
       `❌ Unknown task: ${command}\n\n` +
       'Available tasks:\n' +
       '• /getInvoice username:username password:userpass\n' +
-      '• /getUserInfo - Start audio transcription session'
+      '• /getAudioResume - Start audio transcription session'
     );
   }
 });
@@ -354,7 +352,7 @@ app.post(`/bot${BOT_TOKEN}`, async (req, res) => {
       // Check session timeout
       if (Date.now() - session.startTime > 5 * 60 * 1000) {
         audioSessions.delete(chatId);
-        await bot.sendMessage(chatId, '⏰ Audio session expired. Please use /getUserInfo again if you want to transcribe audio.');
+        await bot.sendMessage(chatId, '⏰ Audio session expired. Please use /getAudioResume again if you want to transcribe audio.');
         return res.sendStatus(200);
       }
 
@@ -384,7 +382,7 @@ app.post(`/bot${BOT_TOKEN}`, async (req, res) => {
         '/taskName param1:value1 param2:value2\n\n' +
         'Available tasks:\n' +
         '• /getInvoice username:username password:userpass\n' +
-        '• /getUserInfo - Start audio transcription session'
+        '• /getAudioResume - Start audio transcription session'
       );
       return res.sendStatus(200);
     }
@@ -404,7 +402,7 @@ app.post(`/bot${BOT_TOKEN}`, async (req, res) => {
         `❌ Unknown task: ${command}\n\n` +
         'Available tasks:\n' +
         '• /getInvoice username:username password:userpass\n' +
-        '• /getUserInfo - Start audio transcription session'
+        '• /getAudioResume - Start audio transcription session'
       );
     }
   }
