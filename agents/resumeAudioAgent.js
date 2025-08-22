@@ -32,7 +32,7 @@ function createTranscriptionAnalyzerAgent() {
     keyTopics: z.array(z.string()).describe("Main topics or themes discussed"),
     summary: z.string().describe("Brief summary of the content")
   });
-  
+
   return model.withStructuredOutput(analysisSchema);
 }
 
@@ -42,7 +42,7 @@ function createTranscriptionCleanerAgent() {
     correctionsCount: z.number().describe("Number of corrections made"),
     mainIssuesFixed: z.array(z.string()).describe("Types of issues that were fixed (e.g., punctuation, grammar, formatting)")
   });
-  
+
   return model.withStructuredOutput(cleaningSchema);
 }
 
@@ -52,17 +52,17 @@ async function validateAudioFile(filePath) {
     const stats = await fs.stat(filePath);
     const supportedExtensions = ['.mp3', '.wav', '.m4a', '.mp4', '.webm', '.ogg'];
     const extension = path.extname(filePath).toLowerCase();
-    
+
     if (!supportedExtensions.includes(extension)) {
       throw new Error(`Unsupported file format: ${extension}`);
     }
-    
+
     const maxSize = 25 * 1024 * 1024; // 25MB limit for OpenAI Whisper
     if (stats.size > maxSize) {
       logger.info(`File size: ${(stats.size / 1024 / 1024).toFixed(2)}MB`);
       throw new Error(`File too large. Maximum size is 25MB`);
     }
-    
+
     return { valid: true, size: stats.size, extension };
   } catch (error) {
     return { valid: false, error: error.message };
@@ -72,16 +72,16 @@ async function validateAudioFile(filePath) {
 // Transcription services
 async function transcribeWithGroqWhisper(audioPath, options = {}) {
   const Groq = (await import('groq-sdk')).default;
-  
+
   const groq = new Groq({
     apiKey: process.env.GROQ_API_KEY
   });
-  
+
   try {
     logger.step("Starting Groq Whisper transcription...");
-    
+
     const audioFile = await fs.readFile(audioPath);
-    
+
     const transcription = await groq.audio.transcriptions.create({
       file: new File([audioFile], path.basename(audioPath)),
       model: "whisper-large-v3", // Groq's Whisper model
@@ -89,7 +89,7 @@ async function transcribeWithGroqWhisper(audioPath, options = {}) {
       response_format: options.includeTimestamps ? 'verbose_json' : 'text',
       temperature: 0
     });
-    
+
     return {
       success: true,
       text: typeof transcription === 'string' ? transcription : transcription.text,
@@ -108,18 +108,18 @@ async function transcribeWithGroqWhisper(audioPath, options = {}) {
 // Keep OpenAI as fallback option
 async function transcribeWithOpenAIWhisper(audioPath, options = {}) {
   const { OpenAI } = await import('openai');
-  
+
   const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
   });
-  
+
   try {
     logger.step("Starting OpenAI Whisper transcription...");
-    
+
     const audioFile = await fs.readFile(audioPath);
     const blob = new Blob([audioFile]);
     const file = new File([blob], path.basename(audioPath));
-    
+
     const transcription = await openai.audio.transcriptions.create({
       file: file,
       model: "whisper-1",
@@ -127,7 +127,7 @@ async function transcribeWithOpenAIWhisper(audioPath, options = {}) {
       response_format: options.includeTimestamps ? 'verbose_json' : 'text',
       temperature: 0
     });
-    
+
     return {
       success: true,
       text: typeof transcription === 'string' ? transcription : transcription.text,
@@ -163,7 +163,7 @@ async function transcriptionAgent({
 }) {
   try {
     logger.step("Audio Transcription Agent Starting");
-    
+
     // Validate audio file
     logger.info("Validating audio file...");
     const validation = await validateAudioFile(audioFile);
@@ -171,41 +171,41 @@ async function transcriptionAgent({
       throw new Error(`File validation failed: ${validation.error}`);
     }
     logger.success(`Audio file validated: ${(validation.size / 1024 / 1024).toFixed(2)}MB`);
-    
+
     // Transcribe audio
     let transcriptionResult;
-    
+
     // Try local first if available, then cloud services
     logger.step("Attempting transcription...");
     transcriptionResult = await transcribeWithLocalWhisper(audioFile, { language, includeTimestamps });
-    
+
     if (!transcriptionResult.success) {
       logger.info("Local transcription failed, trying Groq Whisper...");
       transcriptionResult = await transcribeWithGroqWhisper(audioFile, { language, includeTimestamps });
     }
-    
+
     if (!transcriptionResult.success && process.env.OPENAI_API_KEY) {
       logger.info("Groq transcription failed, trying OpenAI Whisper...");
       transcriptionResult = await transcribeWithOpenAIWhisper(audioFile, { language, includeTimestamps });
     }
-    
+
     if (!transcriptionResult.success) {
       throw new Error(`Transcription failed: ${transcriptionResult.error}`);
     }
-    
+
     logger.success(`Transcription completed using ${transcriptionResult.service}`);
-    
+
     let finalResult = {
       transcription: transcriptionResult.text,
       service: transcriptionResult.service,
       timestamps: transcriptionResult.timestamps
     };
-    
+
     // Clean transcription with AI
     if (cleanTranscription && transcriptionResult.text) {
       logger.step("Cleaning transcription with AI...");
       const cleaner = createTranscriptionCleanerAgent();
-      
+
       const cleaningResult = await cleaner.invoke(`
         You need to clean and improve this transcription while keeping it in the SAME LANGUAGE as the original.
         
@@ -226,7 +226,7 @@ async function transcriptionAgent({
         
         Return the cleaned text in the same language as the input.
       `);
-      
+
       if (cleaningResult?.cleanedText) {
         finalResult.cleanedTranscription = cleaningResult.cleanedText;
         finalResult.correctionsCount = cleaningResult.correctionsCount;
@@ -234,12 +234,12 @@ async function transcriptionAgent({
         logger.success(`Applied ${cleaningResult.correctionsCount || 0} corrections`);
       }
     }
-    
+
     // Analyze content with AI
     if (includeAnalysis && transcriptionResult.text) {
       logger.step("Analyzing transcription content...");
       const analyzer = createTranscriptionAnalyzerAgent();
-      
+
       const textToAnalyze = finalResult.cleanedTranscription || finalResult.transcription;
       const analysisResult = await analyzer.invoke(`
         Analyze this transcription:
@@ -253,23 +253,37 @@ async function transcriptionAgent({
         - Key topics discussed
         - Brief summary
       `);
-      
+
       if (analysisResult) {
         finalResult.analysis = analysisResult;
         logger.success("Content analysis completed");
         logger.llm(`Detected: ${analysisResult.contentType} in ${analysisResult.detectedLanguage} with ${analysisResult.speakerCount} speaker(s)`);
       }
     }
-    
+
     // Save output
     if (outputPath || outputFormat !== 'text') {
       logger.step("Saving output file...");
-      const outputFile = outputPath || path.join(
-        os.homedir(), 
-        "Desktop", 
-        `transcription_${Date.now()}.${outputFormat === 'json' ? 'json' : 'txt'}`
-      );
-      
+
+      // SOLUCIÓN: Usar directorio temporal compatible con Replit
+      let outputFile;
+      if (outputPath) {
+        outputFile = outputPath;
+      } else {
+        // Crear directorio temporal si no existe
+        const tempDir = path.join(process.cwd(), 'temp');
+        try {
+          await fs.mkdir(tempDir, { recursive: true });
+        } catch (err) {
+          // Directory might already exist, ignore error
+        }
+
+        outputFile = path.join(
+          tempDir,
+          `transcription_${Date.now()}.${outputFormat === 'json' ? 'json' : 'txt'}`
+        );
+      }
+
       let outputContent;
       switch (outputFormat) {
         case 'json':
@@ -284,14 +298,14 @@ async function transcriptionAgent({
         default:
           outputContent = finalResult.cleanedTranscription || finalResult.transcription;
       }
-      
+
       await fs.writeFile(outputFile, outputContent, 'utf-8');
       logger.success(`Output saved to: ${outputFile}`);
       finalResult.outputFile = outputFile;
     }
-    
+
     return finalResult;
-    
+
   } catch (error) {
     logger.error(`Transcription failed: ${error.message}`);
     throw error;
@@ -301,7 +315,7 @@ async function transcriptionAgent({
 // Utility functions for subtitle formats
 function convertToSRT(segments) {
   if (!segments) return "Timestamps not available";
-  
+
   return segments.map((segment, index) => {
     const startTime = formatSRTTime(segment.start);
     const endTime = formatSRTTime(segment.end);
@@ -311,7 +325,7 @@ function convertToSRT(segments) {
 
 function convertToVTT(segments) {
   if (!segments) return "WEBVTT\n\nTimestamps not available";
-  
+
   let vtt = "WEBVTT\n\n";
   segments.forEach(segment => {
     const startTime = formatVTTTime(segment.start);
